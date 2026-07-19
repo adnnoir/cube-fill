@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cube Fill — Jeu</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="game-wrap">
+  <div class="hud">
+    <div><span data-i18n="cases"></span> <span id="score">0</span> / <span id="total">0</span></div>
+    <div><span data-i18n="temps"></span> <span id="timer">0.0</span>s</div>
+    <div><span data-i18n="niveau"></span> <span id="level">1</span></div>
+  </div>
+
+  <div id="grid"></div>
+
+  <div id="best"></div>
+  <div id="msg"></div>
+  <div id="authBadge" class="auth-badge"></div>
+  <button id="restart" class="restart-btn"></button>
+  <a href="index.html" class="back" data-i18n="back"></a>
+  &nbsp; · &nbsp;
+  <a href="leaderboard.html" class="back" data-i18n="leaderboardLink"></a>
+  &nbsp; · &nbsp;
+  <a href="settings.html" class="back" data-i18n="settingsLink"></a>
+</div>
+
+<script src="lang.js"></script>
+<script type="module">
+import { auth, db } from "./firebase-init.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+const authBadge = document.getElementById('authBadge');
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    authBadge.innerHTML = (getLang() === 'fr' ? 'Connecté : ' : 'Logged in: ') +
+      `<strong>${user.displayName || user.email}</strong>`;
+  } else {
+    const txt = getLang() === 'fr' ? 'Connecte-toi pour apparaître au classement' : 'Log in to appear on the leaderboard';
+    authBadge.innerHTML = `<a href="account.html">${txt}</a>`;
+  }
+});
+
+async function saveScoreToLeaderboard(lvl, time) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const ref = doc(db, "scores", user.uid);
+  const snap = await getDoc(ref);
+  const rankScore = lvl * 100000 - Math.round(time * 10);
+  if (!snap.exists() || rankScore > snap.data().rankScore) {
+    await setDoc(ref, {
+      pseudo: user.displayName || 'Joueur',
+      level: lvl,
+      time: time,
+      rankScore: rankScore,
+      updatedAt: serverTimestamp()
+    });
+  }
+}
+window.saveScoreToLeaderboard = saveScoreToLeaderboard;
+</script>
+<script>
+// ----- Sons (générés en direct, pas de fichier audio à charger) -----
+let audioCtx = null;
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTone(freq, duration, type = 'sine', volume = 0.15, delay = 0) {
+  const ctx = getCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  const finalVolume = volume * getVolume();
+  gain.gain.value = finalVolume;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  const start = ctx.currentTime + delay;
+  gain.gain.setValueAtTime(finalVolume, start);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+  osc.start(start);
+  osc.stop(start + duration);
+}
+
+function soundMove() {
+  playTone(420, 0.06, 'square', 0.08);
+}
+
+function soundWin() {
+  // petit arpège montant
+  [523, 659, 784, 1047].forEach((f, i) => playTone(f, 0.15, 'triangle', 0.15, i * 0.09));
+}
+
+function soundLose() {
+  playTone(180, 0.35, 'sawtooth', 0.15);
+  playTone(120, 0.4, 'sawtooth', 0.12, 0.08);
+}
+
+// ----- Chrono et meilleur temps (sauvegardé sur cet ordinateur) -----
+let timerInterval = null;
+let startTime = null;
+const timerEl = document.getElementById('timer');
+const bestEl = document.getElementById('best');
+
+function getBestTime(lvl) {
+  return localStorage.getItem('cubefill-best-' + lvl);
+}
+
+function updateBestDisplay() {
+  const best = getBestTime(level);
+  bestEl.textContent = best ? t('best', level, best) : '';
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  startTime = Date.now();
+  timerInterval = setInterval(() => {
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    timerEl.textContent = elapsed;
+  }, 100);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  return ((Date.now() - startTime) / 1000).toFixed(1);
+}
+
+// ----- Paramètres du niveau -----
+let size = 6;          // taille de la grille (6x6 pour commencer)
+let grid = [];         // état de chaque case : "empty" | "filled"
+let cubePos = { x: 0, y: 0 };
+let filledCount = 0;
+let level = 1;
+let gameOver = false;
+
+const gridEl = document.getElementById('grid');
+const scoreEl = document.getElementById('score');
+const totalEl = document.getElementById('total');
+const levelEl = document.getElementById('level');
+const msgEl = document.getElementById('msg');
+const restartBtn = document.getElementById('restart');
+
+function startLevel() {
+  gameOver = false;
+  filledCount = 1;
+  cubePos = { x: 0, y: 0 };
+  msgEl.textContent = '';
+  msgEl.className = '';
+  restartBtn.style.display = 'none';
+
+  // construit une grille vide
+  grid = [];
+  for (let y = 0; y < size; y++) {
+    grid.push(new Array(size).fill('empty'));
+  }
+  grid[0][0] = 'filled'; // le cube démarre en haut à gauche, cette case est remplie direct
+
+  // place quelques obstacles à partir du niveau 2 (jamais sur la case de départ)
+  const obstacleCount = Math.min(level - 1, 5);
+  let placed = 0;
+  while (placed < obstacleCount) {
+    const ox = Math.floor(Math.random() * size);
+    const oy = Math.floor(Math.random() * size);
+    if (grid[oy][ox] === 'empty' && !(ox === 0 && oy === 0)) {
+      grid[oy][ox] = 'obstacle';
+      placed++;
+    }
+  }
+
+  gridEl.style.gridTemplateColumns = `repeat(${size}, 32px)`;
+  totalEl.textContent = size * size - obstacleCount;
+  levelEl.textContent = level;
+  updateBestDisplay();
+  render();
+  startTimer();
+}
+
+function render() {
+  gridEl.innerHTML = '';
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (grid[y][x] === 'filled') cell.classList.add('filled');
+      if (grid[y][x] === 'obstacle') cell.classList.add('obstacle');
+      if (x === cubePos.x && y === cubePos.y) cell.classList.add('cube');
+      gridEl.appendChild(cell);
+    }
+  }
+  scoreEl.textContent = filledCount;
+}
+
+function tryMove(dx, dy) {
+  if (gameOver) return;
+
+  const nx = cubePos.x + dx;
+  const ny = cubePos.y + dy;
+
+  // hors de la grille -> rien ne se passe
+  if (nx < 0 || nx >= size || ny < 0 || ny >= size) return;
+
+  // case déjà remplie ou obstacle -> défaite
+  if (grid[ny][nx] === 'filled' || grid[ny][nx] === 'obstacle') {
+    endGame(false);
+    return;
+  }
+
+  cubePos = { x: nx, y: ny };
+  grid[ny][nx] = 'filled';
+  filledCount++;
+  soundMove();
+  render();
+
+  if (filledCount === size * size - Math.min(level - 1, 5)) {
+    endGame(true);
+  }
+}
+
+function endGame(won) {
+  gameOver = true;
+  const elapsed = stopTimer();
+  restartBtn.style.display = 'inline-block';
+  if (won) {
+    soundWin();
+    const best = getBestTime(level);
+    if (!best || parseFloat(elapsed) < parseFloat(best)) {
+      localStorage.setItem('cubefill-best-' + level, elapsed);
+    }
+    if (window.saveScoreToLeaderboard) {
+      window.saveScoreToLeaderboard(level, parseFloat(elapsed));
+    }
+    msgEl.textContent = t('win', elapsed);
+    msgEl.className = 'win';
+    level++;
+    if (size < 9) size++; // les niveaux suivants sont un peu plus grands
+    restartBtn.textContent = t('next');
+  } else {
+    soundLose();
+    msgEl.textContent = t('lose');
+    msgEl.className = 'lose';
+    restartBtn.textContent = t('restart');
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  const moves = {
+    ArrowUp: [0, -1], ArrowDown: [0, 1],
+    ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+    z: [0, -1], s: [0, 1], q: [-1, 0], d: [1, 0] // support clavier AZERTY
+  };
+  if (moves[e.key]) {
+    e.preventDefault();
+    tryMove(moves[e.key][0], moves[e.key][1]);
+  }
+});
+
+// ----- Contrôles tactiles (swipe) pour mobile -----
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', (e) => {
+  touchStartX = e.changedTouches[0].clientX;
+  touchStartY = e.changedTouches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  const threshold = 25; // distance minimale en pixels pour compter comme un swipe
+
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold) return;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    tryMove(dx > 0 ? 1 : -1, 0);
+  } else {
+    tryMove(0, dy > 0 ? 1 : -1);
+  }
+}, { passive: true });
+
+restartBtn.addEventListener('click', () => {
+  if (msgEl.className === 'lose') { level = 1; size = 6; }
+  startLevel();
+});
+
+startLevel();
+</script>
+
+</body>
+</html>

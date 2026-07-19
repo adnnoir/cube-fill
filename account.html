@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cube Fill — Compte</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="home">
+  <div class="eyebrow" data-i18n="eyebrow"></div>
+  <h1 style="font-size:2.5rem">MON COMPTE</h1>
+
+  <div id="loggedOutView">
+    <div class="auth-tabs">
+      <button id="tabLogin" class="auth-tab active" data-i18n="loginTab"></button>
+      <button id="tabRegister" class="auth-tab" data-i18n="registerTab"></button>
+    </div>
+
+    <form id="loginForm" class="auth-form">
+      <input type="email" id="loginEmail" placeholder="Email" required>
+      <input type="password" id="loginPassword" placeholder="••••••••" required>
+      <button type="submit" class="play-btn" data-i18n="loginBtn"></button>
+      <button type="button" id="forgotBtn" class="forgot-link" data-i18n="forgotPassword"></button>
+    </form>
+
+    <form id="resetForm" class="auth-form" style="display:none">
+      <p style="color:var(--text-dim); font-size:0.85rem; margin-bottom:4px" data-i18n="resetPrompt"></p>
+      <input type="email" id="resetEmail" placeholder="Email" required>
+      <button type="submit" class="play-btn" data-i18n="sendResetBtn"></button>
+      <button type="button" id="cancelResetBtn" class="forgot-link" data-i18n="cancelBtn"></button>
+    </form>
+
+    <form id="registerForm" class="auth-form" style="display:none">
+      <input type="text" id="registerPseudo" placeholder="Pseudo" required maxlength="16">
+      <input type="email" id="registerEmail" placeholder="Email" required>
+      <input type="password" id="registerPassword" placeholder="•••••••• (6 min)" required minlength="6">
+      <button type="submit" class="play-btn" data-i18n="registerBtn"></button>
+    </form>
+
+    <div id="authError" class="auth-error"></div>
+  </div>
+
+  <div id="loggedInView" style="display:none">
+    <p id="welcomeMsg" style="color:var(--text-dim); margin-bottom:20px"></p>
+    <button id="logoutBtn" class="play-btn" data-i18n="logoutBtn"></button>
+  </div>
+
+  <div style="margin-top:24px">
+    <a href="leaderboard.html" class="back" data-i18n="leaderboardLink"></a>
+    &nbsp; · &nbsp;
+    <a href="index.html" class="back" data-i18n="back"></a>
+  </div>
+</div>
+
+<script src="lang.js"></script>
+<script type="module">
+import { auth } from "./firebase-init.js";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut,
+  updateProfile,
+  sendPasswordResetEmail
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+const tabLogin = document.getElementById('tabLogin');
+const tabRegister = document.getElementById('tabRegister');
+const loginForm = document.getElementById('loginForm');
+const registerForm = document.getElementById('registerForm');
+const authError = document.getElementById('authError');
+const loggedOutView = document.getElementById('loggedOutView');
+const loggedInView = document.getElementById('loggedInView');
+const welcomeMsg = document.getElementById('welcomeMsg');
+
+tabLogin.addEventListener('click', () => {
+  tabLogin.classList.add('active'); tabRegister.classList.remove('active');
+  loginForm.style.display = 'flex'; registerForm.style.display = 'none';
+  document.getElementById('resetForm').style.display = 'none';
+});
+tabRegister.addEventListener('click', () => {
+  tabRegister.classList.add('active'); tabLogin.classList.remove('active');
+  registerForm.style.display = 'flex'; loginForm.style.display = 'none';
+  document.getElementById('resetForm').style.display = 'none';
+});
+
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  authError.textContent = '';
+  try {
+    await signInWithEmailAndPassword(
+      auth,
+      document.getElementById('loginEmail').value,
+      document.getElementById('loginPassword').value
+    );
+  } catch (err) {
+    authError.textContent = translateError(err.code);
+  }
+});
+
+registerForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  authError.textContent = '';
+  try {
+    const cred = await createUserWithEmailAndPassword(
+      auth,
+      document.getElementById('registerEmail').value,
+      document.getElementById('registerPassword').value
+    );
+    await updateProfile(cred.user, { displayName: document.getElementById('registerPseudo').value });
+  } catch (err) {
+    authError.textContent = translateError(err.code);
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+const resetForm = document.getElementById('resetForm');
+
+document.getElementById('forgotBtn').addEventListener('click', () => {
+  loginForm.style.display = 'none';
+  resetForm.style.display = 'flex';
+  authError.textContent = '';
+  const prefill = document.getElementById('loginEmail').value;
+  if (prefill) document.getElementById('resetEmail').value = prefill;
+});
+
+document.getElementById('cancelResetBtn').addEventListener('click', () => {
+  resetForm.style.display = 'none';
+  loginForm.style.display = 'flex';
+  authError.textContent = '';
+});
+
+resetForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('resetEmail').value;
+  try {
+    await sendPasswordResetEmail(auth, email);
+    authError.style.color = 'var(--accent)';
+    authError.textContent = translations[getLang()].resetSent;
+    resetForm.style.display = 'none';
+    loginForm.style.display = 'flex';
+  } catch (err) {
+    authError.style.color = 'var(--danger)';
+    authError.textContent = translations[getLang()].resetError;
+  }
+});
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    loggedOutView.style.display = 'none';
+    loggedInView.style.display = 'block';
+    welcomeMsg.textContent = (getLang() === 'fr' ? 'Connecté en tant que ' : 'Logged in as ') + (user.displayName || user.email);
+  } else {
+    loggedOutView.style.display = 'block';
+    loggedInView.style.display = 'none';
+  }
+});
+
+function translateError(code) {
+  const fr = {
+    'auth/email-already-in-use': 'Cet email est déjà utilisé.',
+    'auth/invalid-email': 'Email invalide.',
+    'auth/weak-password': 'Mot de passe trop court (6 caractères min).',
+    'auth/invalid-credential': 'Email ou mot de passe incorrect.',
+    'auth/missing-password': 'Mot de passe manquant.'
+  };
+  const en = {
+    'auth/email-already-in-use': 'This email is already in use.',
+    'auth/invalid-email': 'Invalid email.',
+    'auth/weak-password': 'Password too short (min 6 characters).',
+    'auth/invalid-credential': 'Wrong email or password.',
+    'auth/missing-password': 'Password missing.'
+  };
+  const dict = getLang() === 'fr' ? fr : en;
+  return dict[code] || code;
+}
+</script>
+</body>
+</html>

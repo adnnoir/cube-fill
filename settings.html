@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cube Fill — Paramètres</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="home">
+  <div class="eyebrow" data-i18n="eyebrow"></div>
+  <h1 style="font-size:2.5rem" data-i18n="settingsTitle"></h1>
+
+  <div class="settings-block">
+    <label class="settings-label" data-i18n="volumeLabel"></label>
+    <div class="volume-row">
+      <span>🔈</span>
+      <input type="range" id="volumeSlider" min="0" max="100" value="100">
+      <span>🔊</span>
+    </div>
+  </div>
+
+  <div class="settings-block">
+    <label class="settings-label" data-i18n="languageLabel"></label>
+    <p style="color:var(--text-dim); font-size:0.8rem; margin-top:6px;">
+      🇫🇷 / 🇬🇧 — <span data-i18n="languageLabel"></span> (en haut à droite)
+    </p>
+  </div>
+
+  <a href="index.html" class="back" data-i18n="back"></a>
+</div>
+
+<script src="lang.js"></script>
+<script>
+const slider = document.getElementById('volumeSlider');
+slider.value = Math.round(getVolume() * 100);
+slider.addEventListener('input', () => {
+  setVolume(slider.value / 100);
+});
+</script>
+</body>
+</html>
