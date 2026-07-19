@@ -63,15 +63,23 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+let equippedShape = 'square';
+
 async function applyEquippedSkin(uid) {
   try {
     const snap = await getDoc(doc(db, 'users', uid));
     if (snap.exists() && snap.data().equippedSkin) {
       const skin = SKINS.find(s => s.id === snap.data().equippedSkin);
-      if (skin) document.documentElement.style.setProperty('--accent', skin.color);
+      if (skin) {
+        document.documentElement.style.setProperty('--accent', skin.color);
+        document.documentElement.style.setProperty('--accent-glow', skin.glow);
+        equippedShape = skin.shape;
+        if (window.updateCubeShape) window.updateCubeShape(skin.shape);
+      }
     }
   } catch (err) { /* pas grave, on garde la couleur par défaut */ }
 }
+window.getEquippedShape = () => equippedShape;
 
 async function awardPoints(amount) {
   const user = auth.currentUser;
@@ -269,7 +277,11 @@ function render() {
       cell.className = 'cell';
       if (grid[y][x] === 'filled') cell.classList.add('filled');
       if (grid[y][x] === 'obstacle') cell.classList.add('obstacle');
-      if (x === cubePos.x && y === cubePos.y) cell.classList.add('cube');
+      if (x === cubePos.x && y === cubePos.y) {
+        cell.classList.add('cube');
+        const shape = window.getEquippedShape ? window.getEquippedShape() : 'square';
+        if (shape && shape !== 'square') cell.classList.add('shape-' + shape);
+      }
       gridEl.appendChild(cell);
     }
   }

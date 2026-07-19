@@ -176,8 +176,28 @@ body {
 
 .cell.cube {
   background: var(--accent);
-  box-shadow: 0 0 12px var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow, var(--accent));
   animation: pop 0.15s ease-out;
+}
+
+.cell.cube.shape-star {
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.cell.cube.shape-lightning {
+  clip-path: polygon(58% 0%, 18% 55%, 42% 55%, 30% 100%, 82% 38%, 54% 38%);
+}
+.cell.cube.shape-heart {
+  clip-path: path("M16 29 C6 21 2 15 2 10 C2 5 6 2 10 2 C13 2 15 4 16 6 C17 4 19 2 22 2 C26 2 30 5 30 10 C30 15 26 21 16 29 Z");
+}
+
+.skin-swatch.shape-star {
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+.skin-swatch.shape-lightning {
+  clip-path: polygon(58% 0%, 18% 55%, 42% 55%, 30% 100%, 82% 38%, 54% 38%);
+}
+.skin-swatch.shape-heart {
+  clip-path: path("M22 40 C8 29 3 21 3 14 C3 7 8 3 14 3 C18 3 21 6 22 8 C23 6 26 3 30 3 C36 3 41 7 41 14 C41 21 36 29 22 40 Z");
 }
 
 @keyframes pop {
