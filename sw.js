@@ -1,12 +1,14 @@
-const CACHE_NAME = 'cube-fill-v2';
+const CACHE_NAME = 'cube-fill-v3';
 const FILES_TO_CACHE = [
   './index.html',
   './game.html',
   './account.html',
   './leaderboard.html',
   './settings.html',
+  './shop.html',
   './style.css',
   './lang.js',
+  './skins.js',
   './favicon.svg',
   './icon-192.png',
   './icon-512.png'

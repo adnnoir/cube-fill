@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cube Fill — Boutique</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0b0e14">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="home">
+  <div class="eyebrow" data-i18n="eyebrow"></div>
+  <h1 style="font-size:2.5rem" data-i18n="shopTitle"></h1>
+
+  <div id="pointsDisplay" class="points-display"></div>
+
+  <div id="loggedOutMsg" style="display:none; color:var(--text-dim); margin:20px 0">
+    <a href="account.html" data-i18n="loginToShop"></a>
+  </div>
+
+  <div id="shopContent" style="display:none">
+    <div class="auth-tabs">
+      <button id="tabShop" class="auth-tab active" data-i18n="shopTab"></button>
+      <button id="tabInventory" class="auth-tab" data-i18n="inventoryTab"></button>
+    </div>
+
+    <div id="shopGrid" class="skin-grid"></div>
+    <div id="inventoryGrid" class="skin-grid" style="display:none"></div>
+  </div>
+
+  <div style="margin-top:24px">
+    <a href="index.html" class="back" data-i18n="back"></a>
+    &nbsp; · &nbsp;
+    <a href="game.html?mode=classic" class="back" data-i18n="modeClassic"></a>
+  </div>
+</div>
+
+<script src="lang.js"></script>
+<script src="skins.js"></script>
+<script type="module">
+import { auth, db } from "./firebase-init.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+let userData = null;
+let isAdmin = false;
+let currentUid = null;
+
+const pointsDisplay = document.getElementById('pointsDisplay');
+const loggedOutMsg = document.getElementById('loggedOutMsg');
+const shopContent = document.getElementById('shopContent');
+const shopGrid = document.getElementById('shopGrid');
+const inventoryGrid = document.getElementById('inventoryGrid');
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    loggedOutMsg.style.display = 'block';
+    shopContent.style.display = 'none';
+    pointsDisplay.textContent = '';
+    return;
+  }
+  currentUid = user.uid;
+  loggedOutMsg.style.display = 'none';
+  shopContent.style.display = 'block';
+
+  const adminSnap = await getDoc(doc(db, 'admins', user.uid));
+  isAdmin = adminSnap.exists();
+
+  await loadUserData();
+  render();
+});
+
+async function loadUserData() {
+  const ref = doc(db, 'users', currentUid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    userData = { points: 0, ownedSkins: ['mint'], equippedSkin: 'mint' };
+    await setDoc(ref, userData);
+  } else {
+    userData = snap.data();
+    if (!userData.ownedSkins) userData.ownedSkins = ['mint'];
+    if (!userData.equippedSkin) userData.equippedSkin = 'mint';
+  }
+}
+
+function owns(skinId) {
+  return isAdmin || userData.ownedSkins.includes(skinId);
+}
+
+function render() {
+  pointsDisplay.textContent = isAdmin
+    ? (getLang() === 'fr' ? 'Admin — accès illimité' : 'Admin — unlimited access')
+    : `${userData.points} ${getLang() === 'fr' ? 'points' : 'points'}`;
+
+  shopGrid.innerHTML = '';
+  inventoryGrid.innerHTML = '';
+
+  SKINS.forEach(skin => {
+    const card = document.createElement('div');
+    card.className = 'skin-card';
+    card.innerHTML = `<div class="skin-swatch" style="background:${skin.color}"></div><div class="skin-name">${skin.name}</div>`;
+
+    if (owns(skin.id)) {
+      const btn = document.createElement('button');
+      const equipped = userData.equippedSkin === skin.id;
+      btn.className = 'skin-btn' + (equipped ? ' equipped' : '');
+      btn.textContent = equipped ? t2('equippedLabel') : t2('equipBtn');
+      btn.disabled = equipped;
+      btn.addEventListener('click', () => equipSkin(skin.id));
+      const invCard = card.cloneNode(true);
+      invCard.appendChild(btn);
+      inventoryGrid.appendChild(invCard);
+    } else {
+      const btn = document.createElement('button');
+      btn.className = 'skin-btn';
+      btn.textContent = `${t2('buyBtn')} — ${skin.price} pts`;
+      btn.disabled = userData.points < skin.price;
+      btn.addEventListener('click', () => buySkin(skin));
+      const shopCard = card.cloneNode(true);
+      shopCard.appendChild(btn);
+      shopGrid.appendChild(shopCard);
+    }
+  });
+
+  if (shopGrid.children.length === 0) {
+    shopGrid.innerHTML = `<p style="color:var(--text-dim)">${getLang() === 'fr' ? 'Tu as déjà tout débloqué !' : "You've unlocked everything!"}</p>`;
+  }
+}
+
+async function buySkin(skin) {
+  if (isAdmin) return;
+  if (userData.points < skin.price) return;
+  userData.points -= skin.price;
+  userData.ownedSkins.push(skin.id);
+  await updateDoc(doc(db, 'users', currentUid), {
+    points: userData.points,
+    ownedSkins: userData.ownedSkins
+  });
+  render();
+}
+
+async function equipSkin(skinId) {
+  userData.equippedSkin = skinId;
+  if (!isAdmin) {
+    await updateDoc(doc(db, 'users', currentUid), { equippedSkin: skinId });
+  }
+  render();
+}
+
+document.getElementById('tabShop').addEventListener('click', () => {
+  document.getElementById('tabShop').classList.add('active');
+  document.getElementById('tabInventory').classList.remove('active');
+  shopGrid.style.display = 'grid';
+  inventoryGrid.style.display = 'none';
+});
+document.getElementById('tabInventory').addEventListener('click', () => {
+  document.getElementById('tabInventory').classList.add('active');
+  document.getElementById('tabShop').classList.remove('active');
+  inventoryGrid.style.display = 'grid';
+  shopGrid.style.display = 'none';
+});
+
+function t2(key) {
+  const dict = {
+    fr: { equipBtn: 'Équiper', equippedLabel: 'Équipé ✓', buyBtn: 'Acheter' },
+    en: { equipBtn: 'Equip', equippedLabel: 'Equipped ✓', buyBtn: 'Buy' }
+  };
+  return dict[getLang()][key];
+}
+</script>
+</body>
+</html>

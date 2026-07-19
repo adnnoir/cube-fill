@@ -39,25 +39,52 @@
   <a href="leaderboard.html" class="back" data-i18n="leaderboardLink"></a>
   &nbsp; · &nbsp;
   <a href="settings.html" class="back" data-i18n="settingsLink"></a>
+  &nbsp; · &nbsp;
+  <a href="shop.html" class="back" data-i18n="shopLink"></a>
 </div>
 
 <script src="lang.js"></script>
+<script src="skins.js"></script>
 <script type="module">
 import { auth, db } from "./firebase-init.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 const authBadge = document.getElementById('authBadge');
 
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     authBadge.innerHTML = (getLang() === 'fr' ? 'Connecté : ' : 'Logged in: ') +
       `<strong>${user.displayName || user.email}</strong>`;
+    await applyEquippedSkin(user.uid);
   } else {
     const txt = getLang() === 'fr' ? 'Connecte-toi pour apparaître au classement' : 'Log in to appear on the leaderboard';
     authBadge.innerHTML = `<a href="account.html">${txt}</a>`;
   }
 });
+
+async function applyEquippedSkin(uid) {
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (snap.exists() && snap.data().equippedSkin) {
+      const skin = SKINS.find(s => s.id === snap.data().equippedSkin);
+      if (skin) document.documentElement.style.setProperty('--accent', skin.color);
+    }
+  } catch (err) { /* pas grave, on garde la couleur par défaut */ }
+}
+
+async function awardPoints(amount) {
+  const user = auth.currentUser;
+  if (!user) return;
+  const ref = doc(db, 'users', user.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, { points: amount, ownedSkins: ['mint'], equippedSkin: 'mint' });
+  } else {
+    await updateDoc(ref, { points: (snap.data().points || 0) + amount });
+  }
+}
+window.awardPoints = awardPoints;
 
 async function saveScoreToLeaderboard(lvl, time) {
   const user = auth.currentUser;
@@ -318,6 +345,9 @@ function endGame(won) {
     }
     if (window.saveScoreToLeaderboard) {
       window.saveScoreToLeaderboard(level, parseFloat(elapsed));
+    }
+    if (window.awardPoints) {
+      window.awardPoints(5);
     }
     msgEl.textContent = t('win', elapsed);
     msgEl.className = 'win';

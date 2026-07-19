@@ -330,6 +330,61 @@ body {
 
 .admin-delete:hover { background: rgba(250, 125, 125, 0.15); }
 
+/* ---------- Boutique de skins ---------- */
+
+.points-display {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 20px;
+}
+
+.skin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 14px;
+  width: min(90vw, 480px);
+  margin: 0 auto;
+}
+
+.skin-card {
+  background: var(--bg-soft);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.skin-swatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  box-shadow: 0 0 16px currentColor;
+}
+
+.skin-name {
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.skin-btn {
+  background: none;
+  border: 1px solid var(--accent-2);
+  color: var(--accent-2);
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.skin-btn:hover:not(:disabled) { background: rgba(139, 125, 250, 0.15); }
+.skin-btn:disabled { opacity: 0.4; cursor: default; }
+.skin-btn.equipped { border-color: var(--accent); color: var(--accent); opacity: 1; }
+
 /* ---------- Paramètres ---------- */
 
 .settings-block {
