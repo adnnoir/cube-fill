@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cube Fill</title>
+<title>Cube Fill — Mini jeu</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -26,7 +27,10 @@
     <div style="animation-delay:1.8s"></div>
   </div>
 
-  <a href="game.html" class="play-btn" data-i18n="play"></a>
+  <div class="mode-choice">
+    <a href="game.html?mode=classic" class="play-btn" data-i18n="modeClassic"></a>
+    <a href="game.html?mode=chrono" class="play-btn play-btn-alt" data-i18n="modeChrono"></a>
+  </div>
 
   <div style="margin-top:24px">
     <a href="account.html" class="back" data-i18n="accountLink"></a>

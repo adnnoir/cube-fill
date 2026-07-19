@@ -2,8 +2,10 @@
 const translations = {
   fr: {
     eyebrow: "mini jeu navigateur",
-    desc: "Déplace le cube avec les flèches et remplis toutes les cases de la grille. Une seule erreur, et c'est terminé.",
+    desc: "Déplace le cube avec les flèches et remplis toutes les cases de la grille. Choisis ton mode : Classique (une erreur, et c'est terminé) ou Chrono (remplis un max de cases en 60 secondes).",
     play: "Jouer",
+    modeClassic: "Mode Classique",
+    modeChrono: "Mode Chrono (60s)",
     cases: "CASES",
     temps: "TEMPS",
     niveau: "NIVEAU",
@@ -43,8 +45,10 @@ const translations = {
   },
   en: {
     eyebrow: "browser mini game",
-    desc: "Move the cube with the arrow keys and fill every cell on the grid. One mistake and it's over.",
+    desc: "Move the cube with the arrow keys and fill every cell on the grid. Pick your mode: Classic (one mistake and it's over) or Time Attack (fill as many cells as you can in 60 seconds).",
     play: "Play",
+    modeClassic: "Classic Mode",
+    modeChrono: "Time Attack (60s)",
     cases: "CELLS",
     temps: "TIME",
     niveau: "LEVEL",

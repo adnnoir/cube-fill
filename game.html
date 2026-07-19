@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cube Fill — Jeu</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,8 +12,8 @@
 <div class="game-wrap">
   <div class="hud">
     <div><span data-i18n="cases"></span> <span id="score">0</span> / <span id="total">0</span></div>
-    <div><span data-i18n="temps"></span> <span id="timer">0.0</span>s</div>
-    <div><span data-i18n="niveau"></span> <span id="level">1</span></div>
+    <div><span id="timerLabel" data-i18n="temps"></span> <span id="timer">0.0</span>s</div>
+    <div id="levelBlock"><span data-i18n="niveau"></span> <span id="level">1</span></div>
   </div>
 
   <div id="grid"></div>
@@ -65,6 +66,11 @@ async function saveScoreToLeaderboard(lvl, time) {
 window.saveScoreToLeaderboard = saveScoreToLeaderboard;
 </script>
 <script>
+// ----- Mode de jeu (classique ou chrono) -----
+const urlParams = new URLSearchParams(window.location.search);
+const MODE = urlParams.get('mode') === 'chrono' ? 'chrono' : 'classic';
+const CHRONO_DURATION = 60; // secondes
+
 // ----- Sons (générés en direct, pas de fichier audio à charger) -----
 let audioCtx = null;
 function getCtx() {
@@ -132,6 +138,26 @@ function stopTimer() {
   return ((Date.now() - startTime) / 1000).toFixed(1);
 }
 
+function startCountdown() {
+  clearInterval(timerInterval);
+  let remaining = CHRONO_DURATION;
+  timerEl.textContent = remaining.toFixed(1);
+  timerInterval = setInterval(() => {
+    remaining -= 0.1;
+    if (remaining <= 0) {
+      timerEl.textContent = '0.0';
+      clearInterval(timerInterval);
+      endGame(false);
+      return;
+    }
+    timerEl.textContent = remaining.toFixed(1);
+  }, 100);
+}
+
+function getChronoBest() {
+  return localStorage.getItem('cubefill-chrono-best');
+}
+
 // ----- Paramètres du niveau -----
 let size = 6;          // taille de la grille (6x6 pour commencer)
 let grid = [];         // état de chaque case : "empty" | "filled"
@@ -155,6 +181,12 @@ function startLevel() {
   msgEl.className = '';
   restartBtn.style.display = 'none';
 
+  if (MODE === 'chrono') {
+    size = 8;
+    document.getElementById('levelBlock').style.display = 'none';
+    document.getElementById('timerLabel').textContent = getLang() === 'fr' ? 'TEMPS RESTANT' : 'TIME LEFT';
+  }
+
   // construit une grille vide
   grid = [];
   for (let y = 0; y < size; y++) {
@@ -162,8 +194,8 @@ function startLevel() {
   }
   grid[0][0] = 'filled'; // le cube démarre en haut à gauche, cette case est remplie direct
 
-  // place quelques obstacles à partir du niveau 2 (jamais sur la case de départ)
-  const obstacleCount = Math.min(level - 1, 5);
+  // place quelques obstacles à partir du niveau 2 (jamais sur la case de départ) — mode classique uniquement
+  const obstacleCount = MODE === 'classic' ? Math.min(level - 1, 5) : 0;
   let placed = 0;
   while (placed < obstacleCount) {
     const ox = Math.floor(Math.random() * size);
@@ -177,9 +209,17 @@ function startLevel() {
   gridEl.style.gridTemplateColumns = `repeat(${size}, 32px)`;
   totalEl.textContent = size * size - obstacleCount;
   levelEl.textContent = level;
-  updateBestDisplay();
-  render();
-  startTimer();
+
+  if (MODE === 'chrono') {
+    const best = getChronoBest();
+    bestEl.textContent = best ? (getLang() === 'fr' ? `Meilleur score : ${best} cases` : `Best score: ${best} cells`) : '';
+    render();
+    startCountdown();
+  } else {
+    updateBestDisplay();
+    render();
+    startTimer();
+  }
 }
 
 function render() {
@@ -206,27 +246,58 @@ function tryMove(dx, dy) {
   // hors de la grille -> rien ne se passe
   if (nx < 0 || nx >= size || ny < 0 || ny >= size) return;
 
-  // case déjà remplie ou obstacle -> défaite
-  if (grid[ny][nx] === 'filled' || grid[ny][nx] === 'obstacle') {
-    endGame(false);
-    return;
-  }
+  if (MODE === 'classic') {
+    // case déjà remplie ou obstacle -> défaite
+    if (grid[ny][nx] === 'filled' || grid[ny][nx] === 'obstacle') {
+      endGame(false);
+      return;
+    }
+    cubePos = { x: nx, y: ny };
+    grid[ny][nx] = 'filled';
+    filledCount++;
+    soundMove();
+    render();
 
-  cubePos = { x: nx, y: ny };
-  grid[ny][nx] = 'filled';
-  filledCount++;
-  soundMove();
-  render();
+    if (filledCount === size * size - Math.min(level - 1, 5)) {
+      endGame(true);
+    }
+  } else {
+    // mode chrono : on peut repasser sur une case sans perdre, ça compte juste pas deux fois
+    cubePos = { x: nx, y: ny };
+    if (grid[ny][nx] === 'empty') {
+      grid[ny][nx] = 'filled';
+      filledCount++;
+    }
+    soundMove();
+    render();
 
-  if (filledCount === size * size - Math.min(level - 1, 5)) {
-    endGame(true);
+    if (filledCount === size * size) {
+      endGame(true);
+    }
   }
 }
 
 function endGame(won) {
   gameOver = true;
-  const elapsed = stopTimer();
+  clearInterval(timerInterval);
   restartBtn.style.display = 'inline-block';
+
+  if (MODE === 'chrono') {
+    soundWin();
+    const best = getChronoBest();
+    if (!best || filledCount > parseInt(best)) {
+      localStorage.setItem('cubefill-chrono-best', filledCount);
+    }
+    const isRecord = !best || filledCount > parseInt(best);
+    msgEl.textContent = getLang() === 'fr'
+      ? `Temps écoulé ! ${filledCount} cases remplies${isRecord ? ' — nouveau record !' : ''}`
+      : `Time's up! ${filledCount} cells filled${isRecord ? ' — new record!' : ''}`;
+    msgEl.className = 'win';
+    restartBtn.textContent = t('restart');
+    return;
+  }
+
+  const elapsed = stopTimer();
   if (won) {
     soundWin();
     const best = getBestTime(level);
@@ -285,7 +356,7 @@ document.addEventListener('touchend', (e) => {
 }, { passive: true });
 
 restartBtn.addEventListener('click', () => {
-  if (msgEl.className === 'lose') { level = 1; size = 6; }
+  if (MODE === 'chrono' || msgEl.className === 'lose') { level = 1; size = 6; }
   startLevel();
 });
 

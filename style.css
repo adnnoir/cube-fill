@@ -76,6 +76,24 @@ body {
   box-shadow: 0 8px 24px rgba(125, 250, 203, 0.35);
 }
 
+.mode-choice {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.play-btn-alt {
+  background: transparent;
+  color: var(--accent-2);
+  border: 1px solid var(--accent-2);
+  box-shadow: none;
+}
+
+.play-btn-alt:hover {
+  box-shadow: 0 8px 24px rgba(139, 125, 250, 0.3);
+}
+
 .mini-grid {
   display: grid;
   grid-template-columns: repeat(5, 10px);
