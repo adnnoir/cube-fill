@@ -11,6 +11,13 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
   background: var(--bg);
   color: var(--text);
   font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
@@ -416,4 +423,35 @@ body {
 
 @media (max-width: 480px) {
   .cell { width: 24px; height: 24px; }
+}
+
+.dpad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 20px auto 0;
+  width: fit-content;
+}
+
+.dpad-row {
+  display: flex;
+  gap: 6px;
+}
+
+.dpad-btn {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-soft);
+  border: 1px solid #232a3a;
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 1.1rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dpad-btn:active {
+  background: var(--accent);
+  color: var(--bg);
 }

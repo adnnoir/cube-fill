@@ -21,6 +21,15 @@
 
   <div id="grid"></div>
 
+  <div class="dpad">
+    <button class="dpad-btn dpad-up" data-dx="0" data-dy="-1">▲</button>
+    <div class="dpad-row">
+      <button class="dpad-btn dpad-left" data-dx="-1" data-dy="0">◀</button>
+      <button class="dpad-btn dpad-down" data-dx="0" data-dy="1">▼</button>
+      <button class="dpad-btn dpad-right" data-dx="1" data-dy="0">▶</button>
+    </div>
+  </div>
+
   <div id="best"></div>
   <div id="msg"></div>
   <div id="authBadge" class="auth-badge"></div>
@@ -339,12 +348,16 @@ document.addEventListener('keydown', (e) => {
 let touchStartX = 0;
 let touchStartY = 0;
 
-document.addEventListener('touchstart', (e) => {
+gridEl.addEventListener('touchstart', (e) => {
   touchStartX = e.changedTouches[0].clientX;
   touchStartY = e.changedTouches[0].clientY;
 }, { passive: true });
 
-document.addEventListener('touchend', (e) => {
+gridEl.addEventListener('touchmove', (e) => {
+  e.preventDefault(); // empêche la page de scroller pendant le swipe
+}, { passive: false });
+
+gridEl.addEventListener('touchend', (e) => {
   const dx = e.changedTouches[0].clientX - touchStartX;
   const dy = e.changedTouches[0].clientY - touchStartY;
   const threshold = 25; // distance minimale en pixels pour compter comme un swipe
@@ -361,6 +374,13 @@ document.addEventListener('touchend', (e) => {
 restartBtn.addEventListener('click', () => {
   if (MODE === 'chrono' || msgEl.className === 'lose') { level = 1; size = 6; }
   startLevel();
+});
+
+// ----- Croix directionnelle tactile -----
+document.querySelectorAll('.dpad-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    tryMove(parseInt(btn.getAttribute('data-dx')), parseInt(btn.getAttribute('data-dy')));
+  });
 });
 
 startLevel();
